@@ -1,8 +1,18 @@
 // import React, { useEffect, useState } from "react";
 // import { Table, message, Card, Button } from "antd";
 // import Plus from "../Images/plusIcon.png";
+// import Delete from "../Images/deleteIcon.png";
+
+
+// ///
+// import { useDispatch, useSelector } from "react-redux";
+// import { addStock, removeStock } from "../Redux/stocksSlice";
 
 // const WebSocketTable = () => {
+//     const dispatch = useDispatch();
+
+
+
 //   const [data, setData] = useState([]);
 //   const [error, setError] = useState(null);
 //   const [visibleStocks, setVisibleStocks] = useState(["NSE:26000"]); // Initially only NIFTY is visible
@@ -84,6 +94,14 @@
 //     }
 //   };
 
+//   const handleRemoveStock = (stock) => {
+//     setVisibleStocks(visibleStocks.filter((s) => s !== stock));
+//       setAvailableStocks([...availableStocks, stock]);
+      
+
+//       dispatch(removeStock(stock));
+//   };
+
 //   const columns = [
 //     {
 //       title: "Stock Name",
@@ -94,19 +112,26 @@
 //     { title: "Timestamp", dataIndex: "timestamp_str", key: "timestamp_str" },
 //     { title: "Symbol", dataIndex: "symbol", key: "symbol" },
 //     { title: "LTP", dataIndex: "ltp", key: "ltp" },
-//     {
-//       title: "Previous Day Close",
-//       dataIndex: "prev_day_close",
-//       key: "prev_day_close",
-//     },
 //     { title: "Turnover", dataIndex: "turnover", key: "turnover" },
 //     { title: "Total Traded Qty", dataIndex: "ttq", key: "ttq" },
+//     {
+//       title: "Action",
+//       key: "action",
+//       render: (_, record) => (
+//         //   <Button onClick={() => handleRemoveStock(record.symbol)}>Remove</Button>
+//           <img src={Delete} alt="delete" onClick={() => handleRemoveStock(record.symbol)}
+//               style={{width:"1.3rem"}}
+//           />
+//       ),
+//     },
 //   ];
 
 //   const handleAddStock = (stock) => {
 //     setVisibleStocks([...visibleStocks, stock]);
 //     setAvailableStocks(availableStocks.filter((s) => s !== stock));
-//     setShowDropdown(false); // Hide the dropdown after adding a stock
+//       setShowDropdown(false); // Hide the dropdown after adding a stock
+      
+//       dispatch(addStock(stock));
 //   };
 
 //   return (
@@ -118,7 +143,15 @@
 //         marginLeft: "2%",
 //       }}
 //     >
-//       <div style={{ width: "100%", display: "flex", justifyContent: "end", marginBottom: "3%", position: "relative" }}>
+//       <div
+//         style={{
+//           width: "100%",
+//           display: "flex",
+//           justifyContent: "end",
+//           marginBottom: "3%",
+//           position: "relative",
+//         }}
+//       >
 //         <Button onClick={() => setShowDropdown(!showDropdown)}>
 //           <img src={Plus} alt="plus" style={{ width: "1.5rem" }} />
 //           Watchlist
@@ -173,30 +206,42 @@
 
 
 
-
-
-
 import React, { useEffect, useState } from "react";
 import { Table, message, Card, Button } from "antd";
 import Plus from "../Images/plusIcon.png";
 import Delete from "../Images/deleteIcon.png";
-
-
-///
 import { useDispatch, useSelector } from "react-redux";
 import { addStock, removeStock } from "../Redux/stocksSlice";
 
 const WebSocketTable = () => {
-    const dispatch = useDispatch();
-
-
+  const dispatch = useDispatch();
 
   const [data, setData] = useState([]);
   const [error, setError] = useState(null);
-  const [visibleStocks, setVisibleStocks] = useState(["NSE:26000"]); // Initially only NIFTY is visible
-  const [availableStocks, setAvailableStocks] = useState(["NSE:26009", "NSE:212"]); // Available stocks to add
+  const [visibleStocks, setVisibleStocks] = useState([]);
+  const [availableStocks, setAvailableStocks] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
 
+  // Load selected stocks from local storage on initial mount
+  useEffect(() => {
+    const savedSelectedStocks = JSON.parse(localStorage.getItem("selectedStocks")) || [];
+    setVisibleStocks(savedSelectedStocks);
+  }, []);
+
+  // Save selected stocks to local storage whenever it changes
+  useEffect(() => {
+    localStorage.setItem("selectedStocks", JSON.stringify(visibleStocks));
+  }, [visibleStocks]);
+
+  // Initialize available stocks based on predefined options
+  useEffect(() => {
+    const initialAvailableStocks = ["NSE:26000", "NSE:26009", "NSE:212"].filter(
+      (stock) => !visibleStocks.includes(stock)
+    );
+    setAvailableStocks(initialAvailableStocks);
+  }, [visibleStocks]);
+
+  // WebSocket connection setup
   useEffect(() => {
     const token = "abcd"; // Replace with your token if required
     const wsUrl = `ws://localhost:8000/dataWS?token=${token}`;
@@ -206,10 +251,10 @@ const WebSocketTable = () => {
       console.log("WebSocket connection established");
       message.success("WebSocket connection established");
 
-      // Send subscription message for all tokens
+      // Send subscription message for all visible tokens
       const subscriptionMessage = JSON.stringify({
         action: "subscribe",
-        tokens: ["NSE:26000", "NSE:26009", "NSE:212"],
+        tokens: visibleStocks,
       });
       ws.send(subscriptionMessage);
       console.log("Subscription message sent:", subscriptionMessage);
@@ -257,7 +302,7 @@ const WebSocketTable = () => {
     return () => {
       ws.close();
     };
-  }, []); // Empty dependency array ensures effect runs only on mount
+  }, [visibleStocks]); // Update subscriptions whenever visibleStocks change
 
   const getStockName = (symbol) => {
     switch (symbol) {
@@ -274,10 +319,8 @@ const WebSocketTable = () => {
 
   const handleRemoveStock = (stock) => {
     setVisibleStocks(visibleStocks.filter((s) => s !== stock));
-      setAvailableStocks([...availableStocks, stock]);
-      
-
-      dispatch(removeStock(stock));
+    setAvailableStocks([...availableStocks, stock]);
+    dispatch(removeStock(stock));
   };
 
   const columns = [
@@ -296,10 +339,12 @@ const WebSocketTable = () => {
       title: "Action",
       key: "action",
       render: (_, record) => (
-        //   <Button onClick={() => handleRemoveStock(record.symbol)}>Remove</Button>
-          <img src={Delete} alt="delete" onClick={() => handleRemoveStock(record.symbol)}
-              style={{width:"1.3rem"}}
-          />
+        <img
+          src={Delete}
+          alt="delete"
+          onClick={() => handleRemoveStock(record.symbol)}
+          style={{ width: "1.3rem", cursor: "pointer" }}
+        />
       ),
     },
   ];
@@ -307,9 +352,8 @@ const WebSocketTable = () => {
   const handleAddStock = (stock) => {
     setVisibleStocks([...visibleStocks, stock]);
     setAvailableStocks(availableStocks.filter((s) => s !== stock));
-      setShowDropdown(false); // Hide the dropdown after adding a stock
-      
-      dispatch(addStock(stock));
+    setShowDropdown(false); // Hide the dropdown after adding a stock
+    dispatch(addStock(stock));
   };
 
   return (
