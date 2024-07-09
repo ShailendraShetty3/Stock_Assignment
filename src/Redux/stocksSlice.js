@@ -1,4 +1,4 @@
-// src/features/stocks/stocksSlice.js
+//this functionality is not yet implemented completely
 import { createSlice } from "@reduxjs/toolkit";
 
 const initialState = {

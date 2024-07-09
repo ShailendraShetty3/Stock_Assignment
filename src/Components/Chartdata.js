@@ -115,12 +115,6 @@
 
 // export default Chartdata;
 
-
-
-
-
-
-
 import React, { useEffect, useRef, useState } from "react";
 import { Card, message } from "antd";
 import {
@@ -253,7 +247,7 @@ const Chartdata = () => {
         overflowY: "auto",
       }}
     >
-      <h2>Stock Graph</h2>
+      <h2>Chart</h2>
       <div>
         {Object.keys(data).map((symbol) => (
           <div key={symbol}>
