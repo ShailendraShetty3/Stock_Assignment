@@ -2,23 +2,38 @@
 // import { Table, message, Card, Button } from "antd";
 // import Plus from "../Images/plusIcon.png";
 // import Delete from "../Images/deleteIcon.png";
-
-
-// ///
 // import { useDispatch, useSelector } from "react-redux";
 // import { addStock, removeStock } from "../Redux/stocksSlice";
 
 // const WebSocketTable = () => {
-//     const dispatch = useDispatch();
-
-
+//   const dispatch = useDispatch();
 
 //   const [data, setData] = useState([]);
 //   const [error, setError] = useState(null);
-//   const [visibleStocks, setVisibleStocks] = useState(["NSE:26000"]); // Initially only NIFTY is visible
-//   const [availableStocks, setAvailableStocks] = useState(["NSE:26009", "NSE:212"]); // Available stocks to add
+//   const [visibleStocks, setVisibleStocks] = useState([]);
+//   const [availableStocks, setAvailableStocks] = useState([]);
 //   const [showDropdown, setShowDropdown] = useState(false);
 
+//   // Load selected stocks from local storage on initial mount
+//   useEffect(() => {
+//     const savedSelectedStocks = JSON.parse(localStorage.getItem("selectedStocks")) || [];
+//     setVisibleStocks(savedSelectedStocks);
+//   }, []);
+
+//   // Save selected stocks to local storage whenever it changes
+//   useEffect(() => {
+//     localStorage.setItem("selectedStocks", JSON.stringify(visibleStocks));
+//   }, [visibleStocks]);
+
+//   // Initialize available stocks based on predefined options
+//   useEffect(() => {
+//     const initialAvailableStocks = ["NSE:26000", "NSE:26009", "NSE:212"].filter(
+//       (stock) => !visibleStocks.includes(stock)
+//     );
+//     setAvailableStocks(initialAvailableStocks);
+//   }, [visibleStocks]);
+
+//   // WebSocket connection setup
 //   useEffect(() => {
 //     const token = "abcd"; // Replace with your token if required
 //     const wsUrl = `ws://localhost:8000/dataWS?token=${token}`;
@@ -28,10 +43,10 @@
 //       console.log("WebSocket connection established");
 //       message.success("WebSocket connection established");
 
-//       // Send subscription message for all tokens
+//       // Send subscription message for all visible tokens
 //       const subscriptionMessage = JSON.stringify({
 //         action: "subscribe",
-//         tokens: ["NSE:26000", "NSE:26009", "NSE:212"],
+//         tokens: visibleStocks,
 //       });
 //       ws.send(subscriptionMessage);
 //       console.log("Subscription message sent:", subscriptionMessage);
@@ -79,7 +94,7 @@
 //     return () => {
 //       ws.close();
 //     };
-//   }, []); // Empty dependency array ensures effect runs only on mount
+//   }, [visibleStocks]); // Update subscriptions whenever visibleStocks change
 
 //   const getStockName = (symbol) => {
 //     switch (symbol) {
@@ -96,10 +111,8 @@
 
 //   const handleRemoveStock = (stock) => {
 //     setVisibleStocks(visibleStocks.filter((s) => s !== stock));
-//       setAvailableStocks([...availableStocks, stock]);
-      
-
-//       dispatch(removeStock(stock));
+//     setAvailableStocks([...availableStocks, stock]);
+//     dispatch(removeStock(stock));
 //   };
 
 //   const columns = [
@@ -118,10 +131,12 @@
 //       title: "Action",
 //       key: "action",
 //       render: (_, record) => (
-//         //   <Button onClick={() => handleRemoveStock(record.symbol)}>Remove</Button>
-//           <img src={Delete} alt="delete" onClick={() => handleRemoveStock(record.symbol)}
-//               style={{width:"1.3rem"}}
-//           />
+//         <img
+//           src={Delete}
+//           alt="delete"
+//           onClick={() => handleRemoveStock(record.symbol)}
+//           style={{ width: "1.3rem", cursor: "pointer" }}
+//         />
 //       ),
 //     },
 //   ];
@@ -129,9 +144,8 @@
 //   const handleAddStock = (stock) => {
 //     setVisibleStocks([...visibleStocks, stock]);
 //     setAvailableStocks(availableStocks.filter((s) => s !== stock));
-//       setShowDropdown(false); // Hide the dropdown after adding a stock
-      
-//       dispatch(addStock(stock));
+//     setShowDropdown(false); // Hide the dropdown after adding a stock
+//     dispatch(addStock(stock));
 //   };
 
 //   return (
@@ -206,11 +220,12 @@
 
 
 
+
 import React, { useEffect, useState } from "react";
 import { Table, message, Card, Button } from "antd";
 import Plus from "../Images/plusIcon.png";
 import Delete from "../Images/deleteIcon.png";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
 import { addStock, removeStock } from "../Redux/stocksSlice";
 
 const WebSocketTable = () => {
@@ -221,6 +236,7 @@ const WebSocketTable = () => {
   const [visibleStocks, setVisibleStocks] = useState([]);
   const [availableStocks, setAvailableStocks] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [ws, setWs] = useState(null); // State to hold WebSocket instance
 
   // Load selected stocks from local storage on initial mount
   useEffect(() => {
@@ -245,9 +261,10 @@ const WebSocketTable = () => {
   useEffect(() => {
     const token = "abcd"; // Replace with your token if required
     const wsUrl = `ws://localhost:8000/dataWS?token=${token}`;
-    const ws = new WebSocket(wsUrl);
 
-    ws.onopen = () => {
+    let websocket = new WebSocket(wsUrl);
+
+    websocket.onopen = () => {
       console.log("WebSocket connection established");
       message.success("WebSocket connection established");
 
@@ -256,11 +273,13 @@ const WebSocketTable = () => {
         action: "subscribe",
         tokens: visibleStocks,
       });
-      ws.send(subscriptionMessage);
+      websocket.send(subscriptionMessage);
       console.log("Subscription message sent:", subscriptionMessage);
+
+      setWs(websocket); // Save WebSocket instance to state after connection
     };
 
-    ws.onmessage = (event) => {
+    websocket.onmessage = (event) => {
       try {
         const receivedData = JSON.parse(event.data);
         if (receivedData.type === "Data") {
@@ -287,20 +306,40 @@ const WebSocketTable = () => {
       }
     };
 
-    ws.onerror = (event) => {
+    websocket.onerror = (event) => {
       console.error("WebSocket error:", event);
       setError("WebSocket error");
       message.error("WebSocket error");
+
+      // Attempt to reconnect if websocket connection error occurs
+      if (websocket.readyState === WebSocket.CLOSED) {
+        console.log("Attempting to reconnect...");
+        setTimeout(() => {
+          websocket = new WebSocket(wsUrl);
+          setWs(websocket);
+        }, 5000); // Attempt reconnect after 5 seconds
+      }
     };
 
-    ws.onclose = () => {
-      console.log("WebSocket connection closed");
+    websocket.onclose = (event) => {
+      console.log("WebSocket connection closed:", event);
       message.info("WebSocket connection closed");
+
+      // Attempt to reconnect if websocket connection closed
+      if (websocket.readyState === WebSocket.CLOSED) {
+        console.log("Attempting to reconnect...");
+        setTimeout(() => {
+          websocket = new WebSocket(wsUrl);
+          setWs(websocket);
+        }, 5000); // Attempt reconnect after 5 seconds
+      }
     };
 
-    // Clean up WebSocket connection
+    // Clean up WebSocket connection on component unmount
     return () => {
-      ws.close();
+      if (websocket) {
+        websocket.close();
+      }
     };
   }, [visibleStocks]); // Update subscriptions whenever visibleStocks change
 
