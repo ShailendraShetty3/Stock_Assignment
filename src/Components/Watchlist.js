@@ -14,6 +14,7 @@ const WebSocketTable = () => {
   const [availableStocks, setAvailableStocks] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [ws, setWs] = useState(null); // State to hold WebSocket instance
+  const [isConnected, setIsConnected] = useState(false); // State to track WebSocket connection
 
   // Load selected stocks from local storage on initial mount
   useEffect(() => {
@@ -40,21 +41,13 @@ const WebSocketTable = () => {
     const token = "abcd"; // Replace with your token if required
     const wsUrl = `ws://localhost:8000/dataWS?token=${token}`;
 
-    let websocket = new WebSocket(wsUrl);
+    const websocket = new WebSocket(wsUrl);
 
     websocket.onopen = () => {
       console.log("WebSocket connection established");
       message.success("WebSocket connection established");
-
-      // Send subscription message for all visible tokens
-      const subscriptionMessage = JSON.stringify({
-        action: "subscribe",
-        tokens: visibleStocks,
-      });
-      websocket.send(subscriptionMessage);
-      console.log("Subscription message sent:", subscriptionMessage);
-
       setWs(websocket); // Save WebSocket instance to state after connection
+      setIsConnected(true); // Set connection state to true
     };
 
     websocket.onmessage = (event) => {
@@ -88,30 +81,15 @@ const WebSocketTable = () => {
       console.error("WebSocket error:", event);
       setError("WebSocket error");
       message.error("WebSocket error");
-
-      // Attempt to reconnect if websocket connection error occurs
-      if (websocket.readyState === WebSocket.CLOSED) {
-        console.log("Attempting to reconnect...");
-        setTimeout(() => {
-          websocket = new WebSocket(wsUrl);
-          setWs(websocket);
-        }, 5000); // Attempt reconnect after 5 seconds
-      }
     };
 
     websocket.onclose = (event) => {
       console.log("WebSocket connection closed:", event);
       message.info("WebSocket connection closed");
-
-      // Attempt to reconnect if websocket connection closed
-      if (websocket.readyState === WebSocket.CLOSED) {
-        console.log("Attempting to reconnect...");
-        setTimeout(() => {
-          websocket = new WebSocket(wsUrl);
-          setWs(websocket);
-        }, 5000); // Attempt reconnect after 5 seconds
-      }
+      setIsConnected(false); // Set connection state to false
     };
+
+    setWs(websocket); // Save WebSocket instance to state after connection
 
     // Clean up WebSocket connection on component unmount
     return () => {
@@ -119,7 +97,19 @@ const WebSocketTable = () => {
         websocket.close();
       }
     };
-  }, [visibleStocks]); // Update subscriptions whenever visibleStocks change
+  }, []); // Empty dependency array to ensure the connection is established only once
+
+  // Send subscribe/unsubscribe messages when visibleStocks changes
+  useEffect(() => {
+    if (ws && isConnected) {
+      const subscriptionMessage = JSON.stringify({
+        action: "subscribe",
+        tokens: visibleStocks,
+      });
+      ws.send(subscriptionMessage);
+      console.log("Subscription message sent:", subscriptionMessage);
+    }
+  }, [visibleStocks, ws, isConnected]);
 
   const getStockName = (symbol) => {
     switch (symbol) {
@@ -135,9 +125,44 @@ const WebSocketTable = () => {
   };
 
   const handleRemoveStock = (stock) => {
-    setVisibleStocks(visibleStocks.filter((s) => s !== stock));
-    setAvailableStocks([...availableStocks, stock]);
-    dispatch(removeStock(stock));
+    setVisibleStocks((prev) => {
+      const newVisibleStocks = prev.filter((s) => s !== stock);
+      setAvailableStocks((prevAvailable) => [...prevAvailable, stock]);
+      dispatch(removeStock(stock));
+
+      if (ws && isConnected) {
+        const unsubscriptionMessage = JSON.stringify({
+          action: "unsubscribe",
+          tokens: [stock],
+        });
+        ws.send(unsubscriptionMessage);
+        console.log("Unsubscription message sent:", unsubscriptionMessage);
+      }
+
+      return newVisibleStocks;
+    });
+  };
+
+  const handleAddStock = (stock) => {
+    setVisibleStocks((prev) => {
+      const newVisibleStocks = [...prev, stock];
+      setAvailableStocks((prevAvailable) =>
+        prevAvailable.filter((s) => s !== stock)
+      );
+      setShowDropdown(false); // Hide the dropdown after adding a stock
+      dispatch(addStock(stock));
+
+      if (ws && isConnected) {
+        const subscriptionMessage = JSON.stringify({
+          action: "subscribe",
+          tokens: [stock],
+        });
+        ws.send(subscriptionMessage);
+        console.log("Subscription message sent:", subscriptionMessage);
+      }
+
+      return newVisibleStocks;
+    });
   };
 
   const columns = [
@@ -166,13 +191,6 @@ const WebSocketTable = () => {
     },
   ];
 
-  const handleAddStock = (stock) => {
-    setVisibleStocks([...visibleStocks, stock]);
-    setAvailableStocks(availableStocks.filter((s) => s !== stock));
-    setShowDropdown(false); // Hide the dropdown after adding a stock
-    dispatch(addStock(stock));
-  };
-
   return (
     <Card
       style={{
@@ -182,56 +200,60 @@ const WebSocketTable = () => {
         marginLeft: "2%",
       }}
     >
-      <div
-        style={{
-          width: "100%",
-          display: "flex",
-          justifyContent: "end",
-          marginBottom: "3%",
-          position: "relative",
-        }}
-      >
-        <Button onClick={() => setShowDropdown(!showDropdown)}>
-          <img src={Plus} alt="plus" style={{ width: "1.5rem" }} />
-          Watchlist
-        </Button>
-        {showDropdown && (
-          <ul
-            style={{
-              marginBottom: "1rem",
-              padding: "0",
-              listStyle: "none",
-              position: "absolute",
-              top: "100%",
-              right: "0",
-              backgroundColor: "white",
-              border: "1px solid #ccc",
-              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
-              zIndex: 1,
-            }}
-          >
-            {availableStocks.map((item) => (
-              <li
-                key={item}
-                onClick={() => handleAddStock(item)}
-                style={{
-                  cursor: "pointer",
-                  padding: "5px 10px",
-                }}
-              >
-                {getStockName(item)}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      <div style={{overflowX:"auto"}}>
+        <div
+          style={{
+            width: "100%",
+            display: "flex",
+            justifyContent: "end",
+            marginBottom: "3%",
+            position: "relative",
+          }}
+        >
+          <Button onClick={() => setShowDropdown(!showDropdown)}>
+            <img src={Plus} alt="plus" style={{ width: "1.5rem" }} />
+            Watchlist
+          </Button>
+          {showDropdown && (
+            <ul
+              style={{
+                marginBottom: "1rem",
+                padding: "0",
+                listStyle: "none",
+                position: "absolute",
+                top: "100%",
+                right: "0",
+                backgroundColor: "white",
+                border: "1px solid #ccc",
+                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
+                zIndex: 1,
+              }}
+            >
+              {availableStocks.map((item) => (
+                <li
+                  key={item}
+                  onClick={() => handleAddStock(item)}
+                  style={{
+                    cursor: "pointer",
+                    padding: "5px 10px",
+                  }}
+                >
+                  {getStockName(item)}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
-      <Table
-        columns={columns}
-        dataSource={data.filter((item) => visibleStocks.includes(item.symbol))}
-        rowKey={(record) => record.symbol}
-        pagination={false}
-      />
+        <Table
+          columns={columns}
+          dataSource={data.filter((item) =>
+            visibleStocks.includes(item.symbol)
+          )}
+          rowKey={(record) => record.symbol}
+          pagination={false}
+        />
+      </div>
     </Card>
   );
 };
