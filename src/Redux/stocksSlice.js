@@ -1,45 +1,36 @@
-//this functionality is not yet implemented completely
-import { createSlice } from "@reduxjs/toolkit";
+import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
-  selectedStocks: ["NSE:26000"],
-  availableStocks: ["NSE:26009", "NSE:212"],
-  stockData: [],
+  visibleStocks: [],
 };
 
-const stocksSlice = createSlice({
-  name: "stocks",
+const watchlistSlice = createSlice({
+  name: 'watchlist',
   initialState,
   reducers: {
     addStock: (state, action) => {
-      const stock = action.payload;
-      if (!state.selectedStocks.includes(stock)) {
-        state.selectedStocks.push(stock);
-        state.availableStocks = state.availableStocks.filter(
-          (s) => s !== stock
-        );
+      if (!state.visibleStocks.includes(action.payload)) {
+        state.visibleStocks.push(action.payload);
+        // Update localStorage after adding stock
+        localStorage.setItem('visibleStocks', JSON.stringify(state.visibleStocks));
       }
     },
     removeStock: (state, action) => {
-      const stock = action.payload;
-      state.selectedStocks = state.selectedStocks.filter((s) => s !== stock);
-      if (!state.availableStocks.includes(stock)) {
-        state.availableStocks.push(stock);
-      }
-    },
-    updateStockData: (state, action) => {
-      const newData = action.payload;
-      const index = state.stockData.findIndex(
-        (item) => item.symbol === newData.symbol
-      );
+      const index = state.visibleStocks.indexOf(action.payload);
       if (index !== -1) {
-        state.stockData[index] = newData;
-      } else {
-        state.stockData.push(newData);
+        state.visibleStocks.splice(index, 1);
+        // Update localStorage after removing stock
+        localStorage.setItem('visibleStocks', JSON.stringify(state.visibleStocks));
       }
     },
   },
 });
 
-export const { addStock, removeStock, updateStockData } = stocksSlice.actions;
-export default stocksSlice.reducer;
+// Load visibleStocks from localStorage on initial load
+const persistedStocks = localStorage.getItem('visibleStocks');
+if (persistedStocks) {
+  initialState.visibleStocks = JSON.parse(persistedStocks);
+}
+
+export const watchlistReducer = watchlistSlice.reducer;
+export const { addStock, removeStock } = watchlistSlice.actions;

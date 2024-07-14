@@ -1,13 +1,10 @@
-// src/store.js
-import { configureStore } from "@reduxjs/toolkit";
-import stocksReducer from "./stocksSlice";
+import { configureStore } from '@reduxjs/toolkit';
+import { watchlistReducer } from './stocksSlice'; // Import the reducer
 
 const store = configureStore({
   reducer: {
-    stocks: stocksReducer,
+    watchlist: watchlistReducer, // Add the reducer to the store
   },
 });
 
 export default store;
-
-//this functionality is not yet implemented completely
