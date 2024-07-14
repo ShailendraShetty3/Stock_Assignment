@@ -2,6 +2,7 @@ import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
   visibleStocks: [],
+  websocketData: {},
 };
 
 const watchlistSlice = createSlice({
@@ -23,6 +24,11 @@ const watchlistSlice = createSlice({
         localStorage.setItem('visibleStocks', JSON.stringify(state.visibleStocks));
       }
     },
+    updateWebsocketData: (state, action) => {
+      const { symbol, data } = action.payload;
+      state.websocketData[symbol] = state.websocketData[symbol] || [];
+      state.websocketData[symbol].push(data);
+    },
   },
 });
 
@@ -33,4 +39,4 @@ if (persistedStocks) {
 }
 
 export const watchlistReducer = watchlistSlice.reducer;
-export const { addStock, removeStock } = watchlistSlice.actions;
+export const { addStock, removeStock, updateWebsocketData } = watchlistSlice.actions;
