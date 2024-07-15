@@ -168,7 +168,7 @@
 
 
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { Card, message } from "antd";
 import {
   LineChart,
@@ -180,19 +180,13 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { useSelector } from 'react-redux'; // Import useSelector
+import { useSelector, useDispatch } from 'react-redux'; // Import useSelector and useDispatch
+import { updateWebsocketData } from '../Redux/stocksSlice'; // Adjust the import path accordingly
 
 const Chartdata = () => {
-
-  const websocketData = useSelector((state) => state.watchlist.websocketData);
-
-
-  const [data, setData] = useState({
-    "NSE:26000": [],
-    "NSE:26009": [],
-    "NSE:212": [],
-  });
+  const dispatch = useDispatch();
   const visibleStocks = useSelector((state) => state.watchlist.visibleStocks); // Get visibleStocks from Redux
+  const websocketData = useSelector((state) => state.watchlist.websocketData); // Get websocketData from Redux
 
   useEffect(() => {
     const token = "abcd"; // Replace with your token if required
@@ -216,11 +210,7 @@ const Chartdata = () => {
         const receivedData = JSON.parse(event.data);
         if (receivedData.type === "Data") {
           const symbol = receivedData.data.symbol;
-          setData((prevData) => {
-            const newData = { ...prevData };
-            newData[symbol] = [...(newData[symbol] || []), receivedData.data];
-            return newData;
-          });
+          dispatch(updateWebsocketData({ symbol, data: receivedData.data })); // Dispatch the updateWebsocketData action
         } else {
           console.warn("Unexpected message type:", receivedData.type);
         }
@@ -242,7 +232,7 @@ const Chartdata = () => {
     return () => {
       ws.close();
     };
-  }, [visibleStocks]); // Re-run useEffect when visibleStocks changes
+  }, [visibleStocks, dispatch]); // Re-run useEffect when visibleStocks changes
 
   const getStockName = (symbol) => {
     switch (symbol) {
@@ -257,11 +247,7 @@ const Chartdata = () => {
     }
   };
 
-  // Check if NSE:26000 is present in visibleStocks before rendering the chart
-  const shouldRenderNiftyChart = visibleStocks.includes("NSE:26000");
-  const shouldRenderBankNiftyChart = visibleStocks.includes("NSE:26009");
-  const shouldRenderAshokChart = visibleStocks.includes("NSE:212");
-
+  // Check if each stock is present in visibleStocks before rendering the chart
   const shouldRenderChart = (symbol) => visibleStocks.includes(symbol);
 
   return (
@@ -274,23 +260,51 @@ const Chartdata = () => {
       }}
     >
       <h2>Stock Graph</h2>
-      {visibleStocks.map((symbol) => (
-        shouldRenderChart(symbol) && (
-          <div key={symbol}>
-            <h3>{getStockName(symbol)}</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={websocketData[symbol]}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="timestamp_str" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="ltp" stroke="#8884d8" />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        )
-      ))}
+      {shouldRenderChart("NSE:26000") && (
+        <div>
+          <h3>{getStockName("NSE:26000")}</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={websocketData["NSE:26000"]}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="timestamp_str" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Line type="monotone" dataKey="ltp" stroke="#8884d8" />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+      {shouldRenderChart("NSE:26009") && (
+        <div>
+          <h3>{getStockName("NSE:26009")}</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={websocketData["NSE:26009"]}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="timestamp_str" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Line type="monotone" dataKey="ltp" stroke="#8884d8" />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+      {shouldRenderChart("NSE:212") && (
+        <div>
+          <h3>{getStockName("NSE:212")}</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={websocketData["NSE:212"]}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="timestamp_str" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Line type="monotone" dataKey="ltp" stroke="#8884d8" />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </Card>
   );
 };
