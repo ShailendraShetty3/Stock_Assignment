@@ -1,8 +1,10 @@
 import { createSlice } from '@reduxjs/toolkit';
 
+
 const initialState = {
   visibleStocks: [],
-  websocketData: {},
+  // websocketData: {},
+  websocketData: "",
 };
 
 const watchlistSlice = createSlice({
@@ -24,10 +26,17 @@ const watchlistSlice = createSlice({
         localStorage.setItem('visibleStocks', JSON.stringify(state.visibleStocks));
       }
     },
+    // updateWebsocketData: (state, action) => {
+    //   console.log("in the stock slice")
+    //   console.log(action.payload)
+    //   const { symbol, data } = action.payload;
+    //   state.websocketData[symbol] = state.websocketData[symbol] || [];
+    //   state.websocketData[symbol].push(data);
+    // },
     updateWebsocketData: (state, action) => {
-      const { symbol, data } = action.payload;
-      state.websocketData[symbol] = state.websocketData[symbol] || [];
-      state.websocketData[symbol].push(data);
+      console.log("in the stock slice")
+      console.log(action.payload)
+      state.websocketData = action.payload; // Directly set websocketData to payload
     },
   },
 });

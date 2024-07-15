@@ -52,6 +52,7 @@ const WebSocketTable = () => {
               newData[index] = receivedData.data;
               //
               dispatch(updateWebsocketData(receivedData.data));
+              
               return newData;
             } else {
               // Add new row
