@@ -39,6 +39,7 @@ const WebSocketTable = () => {
     };
 
     websocket.onmessage = (event) => {
+      dispatch(updateWebsocketData(event));
       try {
         const receivedData = JSON.parse(event.data);
         if (receivedData.type === "Data") {
@@ -51,7 +52,7 @@ const WebSocketTable = () => {
               const newData = [...prevData];
               newData[index] = receivedData.data;
               //
-              dispatch(updateWebsocketData(receivedData.data));
+              // dispatch(updateWebsocketData(receivedData.data));
               
               return newData;
             } else {

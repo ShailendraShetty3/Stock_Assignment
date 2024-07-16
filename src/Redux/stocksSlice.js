@@ -33,6 +33,8 @@ const watchlistSlice = createSlice({
     //   state.websocketData[symbol] = state.websocketData[symbol] || [];
     //   state.websocketData[symbol].push(data);
     // },
+
+    
     updateWebsocketData: (state, action) => {
       console.log("in the stock slice")
       console.log(action.payload)
